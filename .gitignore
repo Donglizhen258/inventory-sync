@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# 打包产物
+build/
+dist/
+*.exe
+*.spec
+
+# 数据与敏感配置（绝不提交）
+data/
+backups/
+*.xlsx
+*.xls
+*.db
+*.db-wal
+*.db-shm
+settings.json
+config.json
+*.log
+token_history.json
+.inventory-runtime.json
+
+# 图标/媒体（如不需要可取消注释）
+# *.png
+# *.ico
+
+# 系统文件
+.DS_Store
+Thumbs.db
+*.lock
