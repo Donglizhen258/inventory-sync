@@ -1,0 +1,12 @@
+# 客户端依赖
+openpyxl==3.1.5
+pywebview>=5.0
+
+# 服务器端依赖
+fastapi>=0.115.0
+pydantic>=2.0
+uvicorn>=0.32.0
+python-multipart>=0.0.20
+
+# 打包（可选）
+pyinstaller==6.16.0

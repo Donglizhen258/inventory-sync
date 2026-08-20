@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>ERL库存管理</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div id="loginOverlay" class="login-overlay" hidden>
+      <section class="login-card" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+        <p class="eyebrow">ERL INVENTORY</p>
+        <h1 id="loginTitle">ERL库存管理</h1>
+        <p class="subtitle">请输入登录密码进入系统</p>
+        <form id="loginForm" novalidate>
+          <input
+            id="loginPassword"
+            name="loginPassword"
+            type="password"
+            inputmode="numeric"
+            autocomplete="current-password"
+            placeholder="登录密码"
+            maxlength="32"
+            required
+          />
+        <p id="loginHint" class="field-hint login-hint" role="status"></p>
+        <button id="loginButton" class="primary-button login-button" type="submit">
+          登录
+        </button>
+        <div class="login-links">
+          <button id="serverSettingLink" class="text-button" type="button">服务器设置</button>
+        </div>
+      </form>
+      <small class="login-note">登录需连接云端服务器，数据实时同步</small>
+      </section>
+    </div>
+
+    <div id="serverSettingOverlay" class="modal-overlay" hidden>
+      <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="serverSettingTitle">
+        <h2 id="serverSettingTitle">服务器设置</h2>
+        <p class="field-hint">当前服务器：<strong id="currentServerUrl">—</strong></p>
+        <div class="field">
+          <span>自动发现局域网内的服务器</span>
+          <button id="discoverButton" class="secondary-button" type="button">开始搜索</button>
+          <div id="discoverResults" class="discover-results"></div>
+        </div>
+        <label class="field">
+          <span>手动输入服务器地址</span>
+          <input
+            id="serverUrlInput"
+            type="text"
+            placeholder="例如 http://192.168.1.100:18666"
+            maxlength="200"
+          />
+        </label>
+        <label class="field">
+          <span>之前连接成功的服务器</span>
+          <select id="serverHistorySelect">
+            <option value="">— 选择历史地址 —</option>
+          </select>
+        </label>
+        <div class="modal-actions">
+          <button id="saveServerUrlButton" class="primary-button" type="button">保存并重新登录</button>
+          <button id="closeServerSettingButton" class="secondary-button" type="button">关闭</button>
+        </div>
+      </section>
+    </div>
+
+    <header class="hero">
+      <div>
+        <p class="eyebrow">ERL INVENTORY</p>
+        <h1>ERL库存管理</h1>
+        <p class="subtitle">一物料一行管理；新增材料自动编号，数据实时同步至服务器主机，以主机端数据为准。</p>
+      </div>
+      <div class="hero-actions">
+        <span id="roleBadge" class="offline-pill role-badge" hidden></span>
+        <span id="syncBadge" class="offline-pill"><span class="dot"></span>同步检测中</span>
+        <button id="cloudInfoBtn" class="info-btn" type="button" title="查看云端连接信息">ⓘ</button>
+        <button id="shutdownButton" class="ghost-button" type="button">退出程序</button>
+      </div>
+    </header>
+
+    <main class="page-shell">
+      <section class="file-card card">
+        <div class="file-copy">
+          <span class="section-kicker">库存数据</span>
+          <small>数据以主机端为准，登录后自动同步；下载 Excel 时会让你选择保存位置。</small>
+        </div>
+        <div class="file-actions">
+          <button id="downloadButton" class="secondary-button" type="button">下载 Excel</button>
+          <button id="replaceButton" class="secondary-button" type="button" hidden>替换库存表</button>
+          <input id="replaceInput" type="file" accept=".xlsx" hidden />
+        </div>
+      </section>
+
+      <section class="card form-card">
+        <div class="section-heading">
+          <div>
+            <span class="section-kicker">NEW TRANSACTION</span>
+            <h2>新增库存变动</h2>
+          </div>
+          <p><span class="required-mark">*</span> 为必填项</p>
+        </div>
+
+        <form id="inventoryForm" novalidate>
+          <div class="form-grid">
+            <div class="field material-field">
+              <label for="material">材料名称 <b>*</b></label>
+              <div class="material-search">
+                <input
+                  id="material"
+                  name="material"
+                  type="text"
+                  autocomplete="off"
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-controls="materialSuggestions"
+                  aria-expanded="false"
+                  placeholder="输入名称、规格或物料编码搜索"
+                  required
+                />
+                <div
+                  id="materialSuggestions"
+                  class="material-suggestions"
+                  role="listbox"
+                  hidden
+                ></div>
+              </div>
+              <small id="materialHint" class="field-hint">输入关键词可搜索现有物料；无匹配时将自动生成编号。</small>
+            </div>
+
+            <label class="field">
+              <span>规格型号</span>
+              <input
+                id="specification"
+                name="specification"
+                type="text"
+                autocomplete="off"
+                placeholder="例如：M / 100 只"
+              />
+            </label>
+
+            <label class="field">
+              <span>需求者 <b>*</b></span>
+              <input
+                id="requester"
+                name="requester"
+                type="text"
+                list="requesterSuggestions"
+                autocomplete="off"
+                placeholder="请选择或手动输入"
+                required
+              />
+              <datalist id="requesterSuggestions"></datalist>
+            </label>
+
+            <div class="field location-field">
+              <span>物料放置位置</span>
+              <div class="location-composer">
+                <select
+                  id="shelfLetter"
+                  name="shelfLetter"
+                  aria-label="货架字母"
+                ></select>
+                <select
+                  id="shelfNumber"
+                  name="shelfNumber"
+                  aria-label="货架编号"
+                  disabled
+                ></select>
+                <input
+                  id="location"
+                  name="location"
+                  type="text"
+                  list="locationSuggestions"
+                  autocomplete="off"
+                  aria-label="完整放置位置"
+                  placeholder="自动拼接，也可手动输入"
+                />
+                <datalist id="locationSuggestions"></datalist>
+              </div>
+              <small class="field-hint">先选择货架字母，再选择编号；货架 A–H 均可选 1–4。</small>
+            </div>
+
+            <label class="field">
+              <span>项目 <b>*</b></span>
+              <select id="project" name="project" required>
+                <option value="" disabled selected>请选择项目</option>
+              </select>
+              <div id="projectSuggestions" class="autocomplete-empty" hidden></div>
+            </label>
+
+            <label class="field">
+              <span>PO</span>
+              <input id="po" name="po" type="text" placeholder="可留空" />
+            </label>
+
+            <label class="field">
+              <span>变动时间 <b>*</b></span>
+              <div class="input-with-button">
+                <input id="changedAt" name="changedAt" type="date" required />
+                <button id="nowButton" type="button">今天</button>
+              </div>
+            </label>
+
+            <label class="field">
+              <span>变动数量 <b>*</b></span>
+              <input
+                id="quantity"
+                name="quantity"
+                type="number"
+                step="1"
+                placeholder="增加为正，减少为负"
+                required
+              />
+            </label>
+
+            <label class="field">
+              <span>库存管理 <b>*</b></span>
+              <select id="changeType" name="changeType" required></select>
+            </label>
+
+            <div class="quantity-rule">
+              <span>数量规则</span>
+              <p>入库、退回、整理填正数；领用、寄出、报废填负数。</p>
+            </div>
+
+            <label class="field field-full">
+              <span>备注</span>
+              <textarea
+                id="note"
+                name="note"
+                rows="3"
+                placeholder="可填写用途、去向或补充原因"
+              ></textarea>
+            </label>
+          </div>
+
+          <div class="submit-row">
+            <div class="balance-panel" aria-live="polite">
+              <div>
+                <span>当前库存</span>
+                <strong id="balanceBefore">—</strong>
+              </div>
+              <span class="arrow">→</span>
+              <div>
+                <span>变动后</span>
+                <strong id="balanceAfter">—</strong>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button id="clearButton" class="secondary-button clear-button" type="button">
+                清空内容
+              </button>
+              <button id="submitButton" class="primary-button" type="submit">
+                写入 Excel
+              </button>
+            </div>
+          </div>
+        </form>
+      </section>
+
+      <section class="card sync-card">
+        <div class="section-heading recent-heading">
+          <div>
+            <span class="section-kicker">CLOUD SYNC</span>
+            <h2>云端同步与版本回溯</h2>
+          </div>
+          <div class="sync-actions">
+            <button id="syncPullButton" class="secondary-button" type="button">同步最新版本</button>
+            <button id="syncPushButton" class="secondary-button" type="button">上传当前版本</button>
+            <button id="syncRefreshButton" class="text-button" type="button">刷新状态</button>
+          </div>
+        </div>
+        <p id="syncSummary" class="sync-summary">正在读取同步状态…</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>版本时间</th>
+                <th>版本号</th>
+                <th>大小</th>
+                <th>上传角色</th>
+                <th class="number-cell">操作</th>
+              </tr>
+            </thead>
+            <tbody id="versionsBody">
+              <tr>
+                <td colspan="5" class="empty-cell">正在读取云端版本…</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p id="rollbackNote" class="field-hint">历史版本回溯仅限管理员操作；用旧版本替换当前数据前会自动备份本地文件。</p>
+      </section>
+
+      <section id="adminCard" class="card admin-card" hidden>
+        <div class="section-heading recent-heading">
+          <div>
+            <span class="section-kicker">ADMIN PANEL</span>
+            <h2>管理员面板</h2>
+          </div>
+          <button id="adminRefreshButton" class="text-button" type="button">刷新面板</button>
+        </div>
+
+        <div class="admin-block">
+          <h3>普通用户管理
+            <button id="usersRefreshButton" class="text-button" type="button">刷新列表</button>
+          </h3>
+          <form id="addUserForm" class="add-user-form" novalidate>
+            <label class="field">
+              <span>数字密码</span>
+              <input
+                id="newUserPassword"
+                name="newUserPassword"
+                type="text"
+                inputmode="numeric"
+                placeholder="例如：123456"
+                maxlength="16"
+                required
+              />
+            </label>
+            <label class="field">
+              <span>备注（姓名）</span>
+              <input
+                id="newUserNote"
+                name="newUserNote"
+                type="text"
+                placeholder="例如：张同事"
+                maxlength="40"
+              />
+            </label>
+            <button id="addUserButton" class="primary-button" type="submit">添加用户</button>
+          </form>
+          <div class="table-wrap">
+            <table class="narrow-table">
+              <thead>
+                <tr>
+                  <th>数字密码</th>
+                  <th>备注</th>
+                  <th>创建时间</th>
+                  <th class="number-cell">操作</th>
+                </tr>
+              </thead>
+              <tbody id="usersBody">
+                <tr>
+                  <td colspan="4" class="empty-cell">正在读取用户…</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="admin-block">
+          <h3>项目管理</h3>
+          <form id="addProjectForm" class="add-user-form" novalidate>
+            <label class="field">
+              <span>新项目名称</span>
+              <input
+                id="newProjectName"
+                name="newProjectName"
+                type="text"
+                placeholder="例如：新项目2026"
+                maxlength="31"
+                required
+              />
+            </label>
+            <span class="field-hint">新增项目将创建独立的工作表</span>
+            <button id="addProjectButton" class="primary-button" type="submit">新增项目</button>
+          </form>
+          <div class="table-wrap">
+            <table class="narrow-table">
+              <thead>
+                <tr>
+                  <th>项目名称</th>
+                  <th class="number-cell">操作</th>
+                </tr>
+              </thead>
+              <tbody id="projectsBody">
+                <tr>
+                  <td colspan="2" class="empty-cell">正在读取项目…</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="field-hint">删除项目会同时删除该项目的全部物料数据（操作前会自动备份整个文件），请谨慎操作。</p>
+        </div>
+
+        <div class="admin-block">
+          <h3>修改管理员密码</h3>
+          <form id="changePasswordForm" class="add-user-form" novalidate>
+            <label class="field">
+              <span>原密码</span>
+              <input
+                id="oldAdminPassword"
+                name="oldAdminPassword"
+                type="password"
+                autocomplete="current-password"
+                maxlength="32"
+                required
+              />
+            </label>
+            <label class="field">
+              <span>新密码</span>
+              <input
+                id="newAdminPassword"
+                name="newAdminPassword"
+                type="password"
+                autocomplete="new-password"
+                placeholder="4-32 位"
+                maxlength="32"
+                required
+              />
+            </label>
+            <button id="changePasswordButton" class="primary-button" type="submit">修改密码</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="card recent-card">
+        <div class="section-heading recent-heading">
+          <div>
+            <span class="section-kicker">RECENT ACTIVITY</span>
+            <h2>最近写入记录</h2>
+          </div>
+          <button id="refreshButton" class="text-button" type="button">刷新记录</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>物料编码</th>
+                <th>材料名称</th>
+                <th>规格型号</th>
+                <th>物料放置位置</th>
+                <th>变动时间</th>
+                <th class="number-cell">变动数量</th>
+                <th class="number-cell">剩余数量</th>
+                <th>库存管理</th>
+                <th>需求者</th>
+                <th>项目</th>
+              </tr>
+            </thead>
+            <tbody id="recentBody">
+              <tr>
+                <td colspan="10" class="empty-cell">正在读取记录…</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <button
+        id="appLogo"
+        class="app-logo"
+        type="button"
+        title="点击查看制作者信息"
+      >关于作者</button>
+    </footer>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <div id="dialogBackdrop" class="dialog-backdrop" hidden>
+      <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
+        <span id="dialogIcon" class="dialog-icon">✓</span>
+        <h3 id="dialogTitle">写入成功</h3>
+        <p id="dialogMessage"></p>
+        <button id="dialogClose" class="primary-button" type="button">确定</button>
+      </section>
+    </div>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>
